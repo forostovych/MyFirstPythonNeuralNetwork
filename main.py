@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     total_start_time = time.time()  # Начало общего времени обучения
 
-    for epoch in range(5):  # количество эпох
+    for epoch in range(4):  # количество эпох
         running_loss = 0.0
         epoch_start_time = time.time()  # Запоминаем время начала эпохи
         print(Fore.GREEN + "Эпоха: " + str(epoch) + Style.RESET_ALL)  # Вывод текста зелёным цветом
