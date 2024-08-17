@@ -126,7 +126,7 @@ if __name__ == '__main__':
     for epoch in range(4):  # количество эпох для дообучения
         running_loss = 0.0
         epoch_start_time = time.time()
-        print(Fore.GREEN + "Эпоха (дообучение): " + str(epoch) + Style.RESET_ALL)
+        print(Fore.GREEN + "Эпоха (дообучение): " + str(epoch-1) + Style.RESET_ALL)
         for i, data in enumerate(trainloader_augmented, 0):
             inputs, labels = data
             inputs, labels = inputs.to(device), labels.to(device)
