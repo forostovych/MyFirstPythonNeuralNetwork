@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="torchvision.models._utils")
+
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -41,7 +44,7 @@ if __name__ == '__main__':
     net = DeeperImprovedCNN().to(device)  # Создание модели и отправка ее на устройство (GPU или CPU)
     criterion = torch.nn.CrossEntropyLoss()  # Функция потерь
     optimizer = optim.AdamW(net.parameters(), lr=0.0005, weight_decay=1e-4)  # Оптимизатор с весовой регуляризацией
-    train_and_evaluate_model_cutmix(net, trainloader, testloader, criterion, optimizer, device, epochs=2)
+    train_and_evaluate_model_cutmix(net, trainloader, testloader, criterion, optimizer, device, epochs=1)
 
     # Обучение модели с аугментацией данных
     print(Fore.BLUE + "=== Дообучение модели с аугментацией данных (Flip, Rotation) ===" + Style.RESET_ALL)
@@ -54,7 +57,7 @@ if __name__ == '__main__':
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Нормализация
     ])
     trainloader_augmented, _ = prepare_data(transform_augmented)
-    train_and_evaluate_model_cutmix(net, trainloader_augmented, testloader, criterion, optimizer, device, epochs=2)
+    train_and_evaluate_model_cutmix(net, trainloader_augmented, testloader, criterion, optimizer, device, epochs=1)
 
     # Дополнительное обучение модели с другой аугментацией данных
     print(Fore.BLUE + "=== Ещё одно дообучение модели с другой аугментацией данных ===" + Style.RESET_ALL)
@@ -68,7 +71,7 @@ if __name__ == '__main__':
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Нормализация
     ])
     trainloader_augmented_more, _ = prepare_data(transform_augmented_more)
-    train_and_evaluate_model_cutmix(net, trainloader_augmented_more, testloader, criterion, optimizer, device, epochs=2)
+    train_and_evaluate_model_cutmix(net, trainloader_augmented_more, testloader, criterion, optimizer, device, epochs=1)
 
     # Обучение модели ResNet с предобученными весами
     from torchvision.models import ResNet18_Weights
@@ -77,4 +80,4 @@ if __name__ == '__main__':
     net_resnet.fc = torch.nn.Linear(net_resnet.fc.in_features, 10)  # Замена последнего слоя на слой для 10 классов
     net_resnet = net_resnet.to(device)
     optimizer_resnet = optim.AdamW(net_resnet.parameters(), lr=0.0005, weight_decay=1e-4)  # Оптимизатор с весовой регуляризацией
-    train_and_evaluate_model_cutmix(net_resnet, trainloader, testloader, criterion, optimizer_resnet, device, epochs=2)
+    train_and_evaluate_model_cutmix(net_resnet, trainloader, testloader, criterion, optimizer_resnet, device, epochs=1)
