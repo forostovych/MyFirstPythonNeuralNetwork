@@ -25,6 +25,7 @@ if __name__ == '__main__':
 
     # Подготовка данных
     def prepare_data(transform):
+        # Загружаем и подготавливаем обучающий и тестовый наборы данных CIFAR-10
         trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                                 download=True, transform=transform)
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=32,
@@ -36,26 +37,43 @@ if __name__ == '__main__':
                                                  shuffle=False, num_workers=2)
         return trainloader, testloader
 
-    # Определение модели
-    class SimpleCNN(nn.Module):
+    # Определение улучшенной модели
+    class ImprovedCNN(nn.Module):
         def __init__(self):
-            super(SimpleCNN, self).__init__()
-            self.conv1 = nn.Conv2d(3, 16, 3)
+            super(ImprovedCNN, self).__init__()
+            # Первый сверточный блок
+            self.conv1 = nn.Conv2d(3, 32, 3, padding=1)  # Сверточный слой, 32 фильтра, размер ядра 3x3
+            self.bn1 = nn.BatchNorm2d(32)  # Batch Normalization для стабилизации
+            self.conv2 = nn.Conv2d(32, 64, 3, padding=1)  # Второй сверточный слой, 64 фильтра
+            self.bn2 = nn.BatchNorm2d(64)  # Batch Normalization
+
+            # Второй сверточный блок
+            self.conv3 = nn.Conv2d(64, 128, 3, padding=1)  # Третий сверточный слой, 128 фильтров
+            self.bn3 = nn.BatchNorm2d(128)  # Batch Normalization
+
+            # Полносвязные слои
+            self.fc1 = nn.Linear(128 * 4 * 4, 512)  # Полносвязный слой с 512 нейронами
+            self.fc2 = nn.Linear(512, 256)  # Полносвязный слой с 256 нейронами
+            self.fc3 = nn.Linear(256, 10)  # Выходной слой для 10 классов (CIFAR-10)
+
+            # MaxPooling и Dropout для регуляризации
             self.pool = nn.MaxPool2d(2, 2)
-            self.conv2 = nn.Conv2d(16, 32, 3)
-            self.fc1 = nn.Linear(32 * 6 * 6, 120)
-            self.fc2 = nn.Linear(120, 84)
-            self.fc3 = nn.Linear(84, 10)
+            self.dropout = nn.Dropout(0.5)  # Dropout для предотвращения переобучения
 
         def forward(self, x):
-            x = self.pool(F.relu(self.conv1(x)))
-            x = self.pool(F.relu(self.conv2(x)))
-            x = x.view(-1, 32 * 6 * 6)
+            # Прямой проход через модель
+            x = self.pool(F.relu(self.bn1(self.conv1(x))))
+            x = self.pool(F.relu(self.bn2(self.conv2(x))))
+            x = self.pool(F.relu(self.bn3(self.conv3(x))))
+            x = x.view(-1, 128 * 4 * 4)  # Преобразуем тензор в одномерный вектор для полносвязных слоев
             x = F.relu(self.fc1(x))
+            x = self.dropout(x)  # Применяем Dropout
             x = F.relu(self.fc2(x))
+            x = self.dropout(x)  # Применяем Dropout
             x = self.fc3(x)
             return x
 
+    # Функция для обучения модели
     def train_model(model, trainloader, criterion, optimizer, device, epochs):
         total_start_time = time.time()
         for epoch in range(epochs):
@@ -85,6 +103,7 @@ if __name__ == '__main__':
         total_time = total_end_time - total_start_time
         print(Fore.YELLOW + f"Обучение завершено за {total_time:.3f} секунд" + Style.RESET_ALL)
 
+    # Функция для тестирования модели
     def test_model(model, testloader, device):
         correct = 0
         total = 0
@@ -109,9 +128,9 @@ if __name__ == '__main__':
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
     trainloader, testloader = prepare_data(transform)
-    net = SimpleCNN().to(device)
+    net = ImprovedCNN().to(device)  # Используем улучшенную модель
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.Adam(net.parameters(), lr=0.001)  # Переходим на оптимизатор Adam
     train_model(net, trainloader, criterion, optimizer, device, epochs=15)
     test_model(net, testloader, device)
 
