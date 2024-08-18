@@ -12,6 +12,73 @@ from multiprocessing import freeze_support
 # Инициализация colorama
 init(autoreset=True)
 
+# Определение Residual блока (исправлено)
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(ResidualBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.shortcut = nn.Sequential()
+        if in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1),
+                nn.BatchNorm2d(out_channels)
+            )
+
+    def forward(self, x):
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        out += self.shortcut(x)
+        out = F.relu(out)
+        return out
+
+
+# Определение улучшенной модели с добавлением дополнительных Residual блоков
+class DeeperImprovedCNN(nn.Module):
+    def __init__(self):
+        super(DeeperImprovedCNN, self).__init__()
+        # Первый сверточный блок
+        self.layer1 = self._make_layer(3, 64)
+        self.layer2 = self._make_layer(64, 128)
+
+        # Второй сверточный блок
+        self.layer3 = self._make_layer(128, 256)
+
+        # Дополнительный сверточный блок
+        self.layer4 = self._make_layer(256, 512)
+
+        # Полносвязные слои
+        self.fc1 = nn.Linear(512 * 2 * 2, 1024)
+        self.fc2 = nn.Linear(1024, 512)
+        self.fc3 = nn.Linear(512, 10)
+
+        # MaxPooling и Dropout для регуляризации
+        self.pool = nn.MaxPool2d(2, 2)
+        self.dropout = nn.Dropout(0.5)
+
+    def _make_layer(self, in_channels, out_channels):
+        return nn.Sequential(
+            ResidualBlock(in_channels, out_channels),
+            ResidualBlock(out_channels, out_channels),  # Дополнительный Residual блок
+            nn.MaxPool2d(2)
+        )
+
+    def forward(self, x):
+        # Прямой проход через модель
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)  # Проходим через дополнительный слой
+        x = x.view(-1, 512 * 2 * 2)
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+        x = self.fc3(x)
+        return x
+
 if __name__ == '__main__':
     freeze_support()  # Добавляем это, чтобы избежать проблем на Windows
 
@@ -37,45 +104,10 @@ if __name__ == '__main__':
                                                  shuffle=False, num_workers=2)
         return trainloader, testloader
 
-    # Определение улучшенной модели
-    class ImprovedCNN(nn.Module):
-        def __init__(self):
-            super(ImprovedCNN, self).__init__()
-            # Первый сверточный блок
-            self.conv1 = nn.Conv2d(3, 32, 3, padding=1)  # Сверточный слой, 32 фильтра, размер ядра 3x3
-            self.bn1 = nn.BatchNorm2d(32)  # Batch Normalization для стабилизации
-            self.conv2 = nn.Conv2d(32, 64, 3, padding=1)  # Второй сверточный слой, 64 фильтра
-            self.bn2 = nn.BatchNorm2d(64)  # Batch Normalization
-
-            # Второй сверточный блок
-            self.conv3 = nn.Conv2d(64, 128, 3, padding=1)  # Третий сверточный слой, 128 фильтров
-            self.bn3 = nn.BatchNorm2d(128)  # Batch Normalization
-
-            # Полносвязные слои
-            self.fc1 = nn.Linear(128 * 4 * 4, 512)  # Полносвязный слой с 512 нейронами
-            self.fc2 = nn.Linear(512, 256)  # Полносвязный слой с 256 нейронами
-            self.fc3 = nn.Linear(256, 10)  # Выходной слой для 10 классов (CIFAR-10)
-
-            # MaxPooling и Dropout для регуляризации
-            self.pool = nn.MaxPool2d(2, 2)
-            self.dropout = nn.Dropout(0.5)  # Dropout для предотвращения переобучения
-
-        def forward(self, x):
-            # Прямой проход через модель
-            x = self.pool(F.relu(self.bn1(self.conv1(x))))
-            x = self.pool(F.relu(self.bn2(self.conv2(x))))
-            x = self.pool(F.relu(self.bn3(self.conv3(x))))
-            x = x.view(-1, 128 * 4 * 4)  # Преобразуем тензор в одномерный вектор для полносвязных слоев
-            x = F.relu(self.fc1(x))
-            x = self.dropout(x)  # Применяем Dropout
-            x = F.relu(self.fc2(x))
-            x = self.dropout(x)  # Применяем Dropout
-            x = self.fc3(x)
-            return x
-
     # Функция для обучения модели
     def train_model(model, trainloader, criterion, optimizer, device, epochs):
         total_start_time = time.time()
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
         for epoch in range(epochs):
             running_loss = 0.0
             epoch_start_time = time.time()
@@ -94,6 +126,8 @@ if __name__ == '__main__':
                 if i % 2000 == 1999:
                     print(f'[Epoch {epoch + 1}, Batch {i + 1}] loss: {running_loss / 2000:.3f}')
                     running_loss = 0.0
+
+            scheduler.step()
 
             epoch_end_time = time.time()
             epoch_time = epoch_end_time - epoch_start_time
@@ -128,10 +162,10 @@ if __name__ == '__main__':
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
     trainloader, testloader = prepare_data(transform)
-    net = ImprovedCNN().to(device)  # Используем улучшенную модель
+    net = DeeperImprovedCNN().to(device)  # Используем улучшенную модель с дополнительными Residual блоками
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(net.parameters(), lr=0.001)  # Переходим на оптимизатор Adam
-    train_model(net, trainloader, criterion, optimizer, device, epochs=15)
+    optimizer = optim.AdamW(net.parameters(), lr=0.001)  # Используем AdamW
+    train_model(net, trainloader, criterion, optimizer, device, epochs=6)
     test_model(net, testloader, device)
 
     # 2. Аугментация данных и дообучение
@@ -139,11 +173,12 @@ if __name__ == '__main__':
     transform_augmented = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(10),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
     trainloader_augmented, _ = prepare_data(transform_augmented)
-    train_model(net, trainloader_augmented, criterion, optimizer, device, epochs=15)
+    train_model(net, trainloader_augmented, criterion, optimizer, device, epochs=6)
     test_model(net, testloader, device)
 
     # 3. Ещё одна аугментация и дообучение
@@ -152,9 +187,10 @@ if __name__ == '__main__':
         transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(20),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
     trainloader_augmented_more, _ = prepare_data(transform_augmented_more)
-    train_model(net, trainloader_augmented_more, criterion, optimizer, device, epochs=15)
+    train_model(net, trainloader_augmented_more, criterion, optimizer, device, epochs=6)
     test_model(net, testloader, device)
